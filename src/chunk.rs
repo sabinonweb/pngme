@@ -1,19 +1,20 @@
 #![allow(unused_variables)]
-fn main() {
+
 use std::fmt;
 use std::io::{BufReader, Read};
 
+pub use crate::chunk_type::ChunkType;
+use crate::utils::checksum_ieee;
 use crate::{Error, Result};
-use crate::chunk_type::ChunkType;
+use crc::CRC_32_ISO_HDLC;
 
 /// A validated PNG chunk. See the PNG Spec for more details
-/// http://www.libpng.org/pub/png/spec/1.2/PNG-Structure.html
+/// #![doc(html_root_url = "http://www.libpng.org/pub/png/spec/1.2/PNG-Structure.html")]
 #[derive(Debug, Clone)]
 pub struct Chunk {
-
     /// Lenght is a four byte integer giving the number of bytes of the data
-    /// in the chunk. It doesn't count itsel, and also excludes chunk_type 
-    /// and crc and only counts chunk_type. Zero is valid length. However, the 
+    /// in the chunk. It doesn't count itsel, and also excludes chunk_type
+    /// and crc and only counts chunk_type. Zero is valid length. However, the
     /// encoders and decoders must treat the length as an unsigned integer.
     length: u32,
 
@@ -23,13 +24,27 @@ pub struct Chunk {
     /// Bytes of data apprpriate to chunk_type. Zero is a valid length.
     chunk_data: Vec<u8>,
 
-    /// A 4 byte Cyclic Redundancy Check calculated on preceeding bytes in the 
-    /// chunk, including the chunk_type and chunk_data fields, but not including 
+    /// A 4 byte Cyclic Redundancy Check calculated on preceeding bytes in the
+    /// chunk, including the chunk_type and chunk_data fields, but not including
     ///length. It even exists when there is no data.
-    crc: u32
+    crc: u32,
 }
 
 impl Chunk {
+    pub fn new(chunk_type: ChunkType, chunk_data: Vec<u8>) -> Self {
+        let crc = checksum_ieee(
+            &CRC_32_ISO_HDLC,
+            &[&chunk_type.bytes(), chunk_data.as_slice()].concat(),
+        );
+
+        Chunk {
+            length: chunk_data.len() as u32,
+            chunk_type,
+            chunk_data,
+            crc,
+        }
+    }
+
     /// The length of the data portion of this chunk.
     pub fn length(&self) -> u32 {
         self.length
@@ -46,8 +61,8 @@ impl Chunk {
     }
 
     /// The CRC of this chunk. CRC is basically used for error handling purposes.
-    /// XOR is implemented while carrying out the calculation and the generator 
-    /// divides the data by adding L - 1 0s at the last. Similartly, The remainder 
+    /// XOR is implemented while carrying out the calculation and the generator
+    /// divides the data by adding L - 1 0s at the last. Similartly, The remainder
     /// will replace the 3 added zeroees and that is our CRC
     pub fn crc(&self) -> u32 {
         self.crc
@@ -78,7 +93,7 @@ impl Chunk {
             length,
             chunk_type,
             chunk_data,
-            crc
+            crc,
         })
     }
 
@@ -89,7 +104,8 @@ impl Chunk {
     /// 3. The data itself *(`length` bytes)*
     /// 4. The CRC of the chunk type and data *(4 bytes)*
     pub fn as_bytes(&self) -> Vec<u8> {
-        let result = self.length
+        let result = self
+            .length
             .to_be_bytes()
             .iter()
             .cloned()
@@ -97,7 +113,7 @@ impl Chunk {
             .chain(self.chunk_data.iter().cloned())
             .chain(self.crc.to_be_bytes().iter().cloned())
             .collect();
-        
+
         result
     }
 }
@@ -124,11 +140,10 @@ impl fmt::Display for Chunk {
         Ok(())
     }
 }
-}
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::chunk::Chunk;
     use crate::chunk_type::ChunkType;
     use std::str::FromStr;
 
@@ -146,14 +161,16 @@ mod tests {
             .chain(crc.to_be_bytes().iter())
             .copied()
             .collect();
-        
+
         Chunk::try_from(chunk_data.as_ref()).unwrap()
     }
 
     #[test]
     fn test_new_chunk() {
         let chunk_type = ChunkType::from_str("RuSt").unwrap();
-        let data = "This is where your secret message will be!".as_bytes().to_vec();
+        let data = "This is where your secret message will be!"
+            .as_bytes()
+            .to_vec();
         let chunk = Chunk::new(chunk_type, data);
         assert_eq!(chunk.length(), 42);
         assert_eq!(chunk.crc(), 2882656334);
@@ -248,10 +265,9 @@ mod tests {
             .chain(crc.to_be_bytes().iter())
             .copied()
             .collect();
-        
+
         let chunk: Chunk = TryFrom::try_from(chunk_data.as_ref()).unwrap();
-        
+
         let _chunk_string = format!("{}", chunk);
     }
 }
-

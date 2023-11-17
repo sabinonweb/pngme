@@ -1,12 +1,12 @@
 #![allow(unused_variables)]
-fn main() {
+
+use clap::Parser;
 use std::path::PathBuf;
-use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 pub struct Commands {
-    #[clap(long, short, Subcommand)]
+    #[clap(subcommand)]
     pub command: PngMeArgs,
 }
 
@@ -31,21 +31,21 @@ pub struct EncodeArgs {
     /// Message you want to store in a PNG file
     pub message: String,
     /// If set, the file is saved in a safe place, if not the file is saved in the input file itself.
-    pub output_path: Option<PathBuf>
+    pub output_path: Option<PathBuf>,
 }
 
 #[derive(Parser, Clone)]
 pub struct DecodeArgs {
-     /// Chunk type
-     pub chunk_type: String,
+    /// Chunk type
+    pub chunk_type: String,
     /// Input PNG file path
     pub input_path: PathBuf,
 }
 
 #[derive(Parser, Clone)]
 pub struct RemoveArgs {
-     /// Chunk type
-     pub chunk_type: String,
+    /// Chunk type
+    pub chunk_type: String,
     /// Input PNG file path
     pub input_path: PathBuf,
 }
@@ -53,6 +53,5 @@ pub struct RemoveArgs {
 #[derive(Parser, Clone)]
 pub struct PrintArgs {
     /// Input file path
-    pub input_path: PathBuf
-}
+    pub input_path: PathBuf,
 }
